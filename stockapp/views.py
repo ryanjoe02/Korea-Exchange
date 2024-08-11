@@ -1,55 +1,38 @@
-import requests
-from django.http import JsonResponse
-from django.shortcuts import render
+import yfinance as yf
+from rest_framework.response import Response
+from rest_framework.decorators import api_view
+from datetime import datetime, timedelta
 
-API_KEY = 'your_api_key_here'
+@api_view(['GET'])
+def get_stock_close(request, date):
+    try:
+        # Convert the date (0809 -> 20240809)
+        current_year = datetime.now().year
+        full_date = datetime.strptime(f"{current_year}{date}", "%Y%m%d").strftime("%Y-%m-%d")
+        
+        # Fetch KOSPI index data using the correct ticker symbol
+        kospi = yf.Ticker("^KS11")
 
-def get_kospi_data():
-    url = f'https://data.krx.com/api/data/KOSPI'
-    headers = {'Authorization': f'Bearer {API_KEY}'}
-    response = requests.get(url, headers=headers)
-    data = response.json()
-    return data
+        # Calcuate date, end_date must be start_date + 1
+        start_date = datetime.strptime(full_date, "%Y-%m-%d")
+        end_date = (start_date + timedelta(days=1)).strftime("%Y-%m-%d")
 
-def kospi_view(request):
-    data = get_kospi_data()
+        # Retrieve the closing price (종가) for the given date
+        data = kospi.history(start=start_date, end=end_date)
+        
+        # Ensure that data was returned
+        if data.empty:
+            return Response({'error': 'No data found for the specified date.'}, status=404)
 
-    # kospi가 -8% 떨어진 최신 날짜 찾기
-    latest_drop_date = None
-    highest_date = None
-    lowest_date = None
+        close_price = data['Close'].iloc[0]
 
-    highest_value = float('-inf')
-    lowest_value = float('inf')
+        # Round to two decimal places
+        rounded_price = round(close_price, 2)
+        
+        # Return as JSON
+        return Response({'date': full_date, 'close_price': rounded_price})
 
-    previous_value = None
-
-    for record in data:
-        current_value = record['kospi_value']
-        date = record['date']
-
-        # 1. kospi가 -8% 떨어진 날짜 찾기
-        if previous_value:
-            drop_percentage = ((previous_value - current_value) / previous_value) * 100
-            if drop_percentage >= 8 and not latest_drop_date:
-                latest_drop_date = date
-
-        # 2. kospi 최고점 날짜 찾기
-        if current_value > highest_value:
-            highest_value = current_value
-            highest_date = date
-
-        # 3. kospi 최저점 날짜 찾기
-        if current_value < lowest_value:
-            lowest_value = current_value
-            lowest_date = date
-
-        previous_value = current_value
-
-    result = {
-        'latest_drop_date': latest_drop_date,
-        'highest_date': highest_date,
-        'lowest_date': lowest_date,
-    }
-
-    return JsonResponse(result)
+    except IndexError:
+        return Response({'error': 'No data found for the specified date.'}, status=404)
+    except ValueError:
+        return Response({'error': 'Invalid date format.'}, status=400)
