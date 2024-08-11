@@ -1,3 +1,6 @@
+# me #
+.DS_Store
+
 # Django #
 *.log
 *.pot
