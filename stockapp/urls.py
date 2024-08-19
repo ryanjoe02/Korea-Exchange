@@ -1,6 +1,6 @@
 from django.urls import path
-from .views import get_stock_close
+from .views import latest_kospi_data
 
 urlpatterns = [
-    path('api/stock/<str:date>/', get_stock_close, name='get_stock_close'),
+    path('api/latest/', latest_kospi_data, name='latest_kospi_data'),
 ]
