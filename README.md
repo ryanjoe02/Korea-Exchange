@@ -1,6 +1,13 @@
 # KRX
 
-### 사용 Packages
+### 사용방법
+
+1. UPDATE
+
+    ```python manage.py import_kospi_data.py```</br>
+    기존 데이터에서 가장 최근 데이터까지 SQL에 업데이트
+
+### Packages
 
 - yfinance
     - 1996년 12월 11일 부터 데이터 존재. 그래서 1980년 1월 4일 코스피 100부터 시작되는 데이터가 존재하지 않음
