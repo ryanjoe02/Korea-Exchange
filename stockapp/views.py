@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 @api_view(['GET'])
 def latest_kospi_data(request):
     fifty_days = datetime.now().date() - timedelta(days=50)
-    latest_data = KospiData.objects.filter(date__get=fifty_days).order_by('date')
+    latest_data = KospiData.objects.filter(date__gte=fifty_days).order_by('-date')
     serializer = KospiDataSerializer(latest_data, many=True)
 
     return Response(serializer.data)
