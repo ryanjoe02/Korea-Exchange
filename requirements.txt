@@ -6,3 +6,4 @@ yfinance==0.2.41
 django-cors-headers==4.4.0
 celery==5.4.0
 django-celery-beat==2.6.0
+djoser==2.2.3

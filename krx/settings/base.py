@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites', # Required for Djoser to generate email links
 ]
 
 # Application Definition
@@ -53,6 +54,7 @@ INSTALLED_APPS += [
 INSTALLED_APPS += [
     "rest_framework",
     "corsheaders",
+    "djoser", # supports REST API-based user management (sign-in, sign-up, password reset)
 ]
 
 MIDDLEWARE = [
@@ -65,6 +67,30 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.TokenAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
+SITE_ID = 1
+
+DJOSER = {
+    'LOGIN_FIELD': 'email',
+    'USER_CREATE_PASSWORD_RETYPE': True,
+    'PASSWORD_RESET_CONFIRM_URL': 'auth/reset-password/{uid}/{token}',
+    'ACTIVATION_URL': 'auth/activate/{uid}/{token}',
+    'SEND_ACTIVATION_EMAIL': True,
+    'SERIALIZERS': {
+        'user_create': 'stockapp.serializers.UserCreateSerializer',
+        'user': 'stockapp.serializers.UserSerializer',
+        'current_user': 'stockapp.serializers.UserSerializer',
+    },
+}
 
 ROOT_URLCONF = 'krx.urls'
 
