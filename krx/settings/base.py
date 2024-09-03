@@ -55,6 +55,7 @@ INSTALLED_APPS += [
     "rest_framework",
     "corsheaders",
     "djoser", # supports REST API-based user management (sign-in, sign-up, password reset)
+    "rest_framework.authtoken",
 ]
 
 MIDDLEWARE = [
@@ -80,15 +81,11 @@ REST_FRAMEWORK = {
 SITE_ID = 1
 
 DJOSER = {
-    'LOGIN_FIELD': 'email',
     'USER_CREATE_PASSWORD_RETYPE': True,
-    'PASSWORD_RESET_CONFIRM_URL': 'auth/reset-password/{uid}/{token}',
-    'ACTIVATION_URL': 'auth/activate/{uid}/{token}',
-    'SEND_ACTIVATION_EMAIL': True,
+    'USERNAME_FIELD': 'email',
     'SERIALIZERS': {
-        'user_create': 'stockapp.serializers.UserCreateSerializer',
-        'user': 'stockapp.serializers.UserSerializer',
-        'current_user': 'stockapp.serializers.UserSerializer',
+        'user_create': 'djoser.serializers.UserCreateSerializer',
+        'user': 'djoser.serializers.UserSerializer',
     },
 }
 
@@ -141,7 +138,6 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
