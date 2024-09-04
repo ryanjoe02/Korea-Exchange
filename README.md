@@ -15,10 +15,22 @@
 - Celery 
     - models 안에 데이터를 매일 업데이트 하기 위해 사용
 
-
 - 참고사항
 
     - 나중에 옛날 컴퓨터가 없던 시절 데이터는 수기로 SQL 안에 넣어야 할 듯</br>
       index.krx.co.kr 여기에 저장
 
-    
+
+### 구현한 기능들
+
+- Login 할 때, username OR email AND password -> 를 통해서 토큰을 얻을 수 있다.
+
+    원래는 username , password 만 가능했던걸 Custom 했다.
+
+- Test User
+
+    ID : test1
+
+    Email : test1@gmail.com
+
+    PW : user@123

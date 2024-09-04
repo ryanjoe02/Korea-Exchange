@@ -1,9 +1,30 @@
+from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
+from rest_framework.views import APIView
+from rest_framework import status
+from rest_framework.permissions import AllowAny
+
 from datetime import datetime, timedelta
 
 from .models import KospiData
-from .serializers import KospiDataSerializer
+from .serializers import KospiDataSerializer,CustomTokenCreateSerializer
+
+#connected CustomTokenCreateSerializer
+class CustomTokenCreateView(APIView):
+    permission_classes = [AllowAny] # 토큰을 보낼 때는 인증 없이 보내야 하기 때문이다.
+
+    def post(self, request, *args, **kwargs):
+        serializer = CustomTokenCreateSerializer(data=request.data)
+        # serializer.is_valid(raise_exception=True)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+        
+        user = serializer.validated_data['user']
+        token, created = Token.objects.get_or_create(user=user)
+
+        return Response({'token': token.key}, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 def latest_kospi_data(request):
