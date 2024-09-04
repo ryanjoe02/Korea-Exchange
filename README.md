@@ -29,6 +29,6 @@
 
 - Test User:
 
-  - Username**: test1
-  - Email**: test1@gmail.com
-  - Password**: user@123
+  - Username: test1
+  - Email: test1@gmail.com
+  - Password: user@123
