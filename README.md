@@ -21,16 +21,14 @@
       index.krx.co.kr 여기에 저장
 
 
-### 구현한 기능들
+### Implemented Features
 
-- Login 할 때, username OR email AND password -> 를 통해서 토큰을 얻을 수 있다.
+- During login, users can obtain a token using either a **username or email** along with a **password**.
+  
+  Originally, it was only possible to log in with a **username and password**, but this has been customized.
 
-    원래는 username , password 만 가능했던걸 Custom 했다.
+- Test User:
 
-- Test User
-
-    ID : test1
-
-    Email : test1@gmail.com
-
-    PW : user@123
+  - Username**: test1
+  - Email**: test1@gmail.com
+  - Password**: user@123

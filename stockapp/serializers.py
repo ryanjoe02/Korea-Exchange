@@ -22,7 +22,7 @@ class CustomTokenCreateSerializer(serializers.Serializer):
         password = attrs.get('password')
 
         if username_or_email and password:
-            # email or username 인지 구별
+            # Distingush between email and username
             if '@' in username_or_email:
                 print(f"Trying to authenticate with email: {username_or_email}")
                 user = authenticate(request=self.context.get('request'), email=username_or_email, password=password)

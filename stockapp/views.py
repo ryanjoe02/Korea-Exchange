@@ -12,7 +12,7 @@ from .serializers import KospiDataSerializer,CustomTokenCreateSerializer
 
 #connected CustomTokenCreateSerializer
 class CustomTokenCreateView(APIView):
-    permission_classes = [AllowAny] # 토큰을 보낼 때는 인증 없이 보내야 하기 때문이다.
+    permission_classes = [AllowAny] # This is because the token must be sent without authentication
 
     def post(self, request, *args, **kwargs):
         serializer = CustomTokenCreateSerializer(data=request.data)
