@@ -1,5 +1,6 @@
 from django.db import models
 
+
 # Create your models here.
 class KospiData(models.Model):
     date = models.DateField(unique=True)
@@ -11,6 +12,7 @@ class KospiData(models.Model):
 
     def __str__(self):
         return f"{self.date}"
+
 
 class StockQueryLog(models.Model):
     query = models.CharField(max_length=255)

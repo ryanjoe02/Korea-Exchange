@@ -7,20 +7,27 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='KospiData',
+            name="KospiData",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('date', models.DateField(unique=True)),
-                ('open_price', models.FloatField()),
-                ('high_price', models.FloatField()),
-                ('low_price', models.FloatField()),
-                ('close_price', models.FloatField()),
-                ('volume', models.FloatField()),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("date", models.DateField(unique=True)),
+                ("open_price", models.FloatField()),
+                ("high_price", models.FloatField()),
+                ("low_price", models.FloatField()),
+                ("close_price", models.FloatField()),
+                ("volume", models.FloatField()),
             ],
         ),
     ]
