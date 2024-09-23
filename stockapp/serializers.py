@@ -45,3 +45,6 @@ class KospiDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = KospiData
         fields = '__all__'
+
+class StockQuerySerializer(serializers.Serializer):
+    query = serializers.CharField(max_length=255)
