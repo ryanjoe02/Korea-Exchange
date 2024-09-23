@@ -87,7 +87,7 @@ def filter_kospi_data(request):
 # convert symbol to ticker
 def search_ticker(company_name):
     url = "https://api.polygon.io/v3/reference/tickers"
-    api_key = os.getenv('POLYGON_API_KEY')
+    api_key = os.getenv("POLYGON_API_KEY")
 
     params = {"search": company_name, "active": "true", "apiKey": api_key}
 
