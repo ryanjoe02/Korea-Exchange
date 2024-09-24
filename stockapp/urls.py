@@ -6,6 +6,7 @@ from .views import (
     CustomTokenCreateView,
     StockExportExcelAPIView,
     StockQueryAPIView,
+    StockDataSearchAPIView,
 )
 
 urlpatterns = [
@@ -16,5 +17,10 @@ urlpatterns = [
         "auth/token/login/", CustomTokenCreateView.as_view(), name="custom_token_create"
     ),
     path("api/stock-query/", StockQueryAPIView.as_view(), name="stock_query"),
-    path("api/stock-export", StockExportExcelAPIView.as_view(), name="stock_export"),
+    path(
+        "api/stock-data-search/",
+        StockDataSearchAPIView.as_view(),
+        name="stock_data_search",
+    ),
+    path("api/stock-export/", StockExportExcelAPIView.as_view(), name="stock_export"),
 ]

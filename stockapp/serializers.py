@@ -18,7 +18,7 @@ class UserSerializer(BaseUserSerializer):
         fields = ["id", "email", "username"]
 
 
-# custom login (username or email) and (password)
+## custom login (username or email) and (password)
 class CustomTokenCreateSerializer(serializers.Serializer):
     username_or_email = serializers.CharField()
     password = serializers.CharField(style={"input_type": "password"})
@@ -64,5 +64,14 @@ class KospiDataSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+## Search stock
 class StockQuerySerializer(serializers.Serializer):
     query = serializers.CharField(max_length=255)
+
+
+class StockDataSearchSerializer(serializers.Serializer):
+    ticker = serializers.CharField(max_length=10)
+    price = serializers.FloatField()
+    comparison_type = serializers.ChoiceField(
+        choices=["greater_than", "greater_than_equal", "less_than", "less_than_equal"]
+    )

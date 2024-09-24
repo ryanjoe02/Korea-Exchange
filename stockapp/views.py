@@ -19,13 +19,14 @@ from .serializers import (
     KospiDataSerializer,
     CustomTokenCreateSerializer,
     StockQuerySerializer,
+    StockDataSearchSerializer,
 )
 
 # extract stock name and price using NLP
 nlp = spacy.load("en_core_web_sm")
 
 
-# connected CustomTokenCreateSerializer
+##### CustomTokenCreateSerializer #####
 class CustomTokenCreateView(APIView):
     permission_classes = [
         AllowAny
@@ -44,6 +45,7 @@ class CustomTokenCreateView(APIView):
         return Response({"token": token.key}, status=status.HTTP_200_OK)
 
 
+##### stored kospi data in SQL (from 1996.12.11) #####
 @api_view(["GET"])
 def latest_kospi_data(request):
     fifty_days = datetime.now().date() - timedelta(days=10)
@@ -84,7 +86,8 @@ def filter_kospi_data(request):
     return Response({"error": "No Close price provided."})
 
 
-# convert symbol to ticker
+##### Search stock #####
+# search for company name and return possible tickers
 def search_ticker(company_name):
     url = "https://api.polygon.io/v3/reference/tickers"
     api_key = os.getenv("POLYGON_API_KEY")
@@ -97,7 +100,7 @@ def search_ticker(company_name):
         data = response.json()
 
         if "results" in data and len(data["results"]) > 0:
-            ticker_symbol = data["results"][0]["ticker"]  # get a first ticker
+            ticker_symbol = data["results"][0]["ticker"]  # get a ticker
             return ticker_symbol
         else:
             print(f"No ticker found for {company_name}")
@@ -109,39 +112,39 @@ def search_ticker(company_name):
 
 def extract_stock_info(query):
     doc = nlp(query)
-
     stock_name = None
     price_threshold = None
 
-    print(f"Entities in the query: {[ (ent.text, ent.label_) for ent in doc.ents ]}")
+    # print(f"Entities in the query: {[ (ent.text, ent.label_) for ent in doc.ents ]}")
 
     # extract price and stock name
     for ent in doc.ents:
-        if ent.label_ == "MONEY" or ent.label_ == "CARDINAL":
+        if ent.label_ == "MONEY" or ent.label_ == "CARDINAL":  # price
             price_threshold = ent.text
-        elif (
-            ent.label_ == "ORG" or ent.label_ == "GPE"
-        ):  # organizations such as Apple, Samsung etc
+        elif ent.label_ == "ORG" or ent.label_ == "GPE":  # company name
             stock_name = ent.text
 
-    # fall back to check for any proper nouns
-    if stock_name:
-        print(f"Searching ticker for: {stock_name}")
-        stock_symbol = search_ticker(stock_name)
-
-    print(f"Extracted stock_symbol : {stock_symbol}")
-    print(f"Extracted price_threshold : {price_threshold}")
-
-    return stock_symbol, price_threshold
+    return stock_name, price_threshold
 
 
 # fetch stock data using yfinance
-def get_stock_data(symbol):
-    print(f"Fetching data for stock symbol: {symbol}")
-    stock = yf.Ticker(symbol)
+def get_stock_data(ticker, price, comparison_type):
+    stock = yf.Ticker(ticker)
     hist = stock.history(peroid="1y")
-    print(f"Fetched stock data: {hist.head()}")
-    return hist
+
+    if hist.empty:
+        return []
+
+    if comparison_type == "greater_than":
+        result = hist[hist["Close"] > float(price)]
+    elif comparison_type == "greater_than_equal":
+        result = hist[hist["Close"] >= float(price)]
+    elif comparison_type == "less_than":
+        result = hist[hist["Close"] < float(price)]
+    elif comparison_type == "less_than_equal":
+        result = hist[hist["Close"] <= float(price)]
+
+    return result.tail(5).reset_index()[["Date", "Close"]].to_dict(orient="records")
 
 
 # view to process stock queries
@@ -152,52 +155,56 @@ class StockQueryAPIView(APIView):
         if serializer.is_valid():
             query = serializer.validated_data.get("query")
 
-            # extract stock symbol and price
-            stock_symbol, price = extract_stock_info(query)
+            # 1. extract company name and price
+            company, price = extract_stock_info(query)
 
-            if not stock_symbol or not price:
+            if not company or not price:
                 return Response(
-                    {"error": "Unable to extract stock information"}, status=400
+                    {"error": "Unable to extract stock information"},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            try:
-                # fetch stock data using yfinance
-                data = get_stock_data(stock_symbol)
+            # 2. search for tickers
+            company_options = search_ticker(company)
 
-                # ensure data was returned
-                if data.empty:
-                    return Response(
-                        {"error": "No stock data available for the given query"},
-                        status=404,
-                    )
-
-                # filter for dates
-                try:
-                    price_float = float(price.replace(",", ""))
-                    result = data[data["Close"] > price_float]
-                except:
-                    return Response({"error": "Invalid price value"}, status=400)
-
-                if result.empty:
-                    return Response(
-                        {
-                            "error": f"No dates found where {stock_symbol} exceeded {price}"
-                        },
-                        status=404,
-                    )
-
-                # return the last 3 results
-                result = result.tail(3)
-                response_data = result.reset_index()[["Date", "Close"]].to_dict(
-                    orient="records"
+            if len(company_options) == 0:
+                return Response(
+                    {"error": "No stock data available for the given query"},
+                    status=status.HTTP_404_NOT_FOUND,
                 )
 
-                return Response({"stock": stock_symbol, "result": response_data})
+            # 3. Return company and ticker
+            return Response(
+                {"company_options": company_options, "price": price},
+                status=status.HTTP_200_OK,
+            )
 
-            except Exception as e:
-                return Response({"error": str(e)}, status=500)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response(serializer.errors, status=400)
+
+class StockDataSearchAPIView(APIView):
+    def post(self, request):
+        serializer = StockDataSearchSerializer(data=request.data)
+
+        if serializer.is_valid():
+            ticker = serializer.validated_data.get("ticker")
+            price = serializer.validated_data.get("price")
+            comparison_type = serializer.validated_data.get("comparison_type")
+
+            # 4. fetch stock data and return
+            stock_data = get_stock_data(ticker, price, comparison_type)
+
+            return Response(
+                {
+                    "ticker": ticker,
+                    "price": price,
+                    "comparsion_type": comparison_type,
+                    "stock_data": stock_data,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # view to export data to Excel
