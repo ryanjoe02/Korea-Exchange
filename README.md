@@ -3,6 +3,11 @@
 ### **yfinance**
   - 1996년 12월 11일 부터 데이터 존재. 그래서 1980년 1월 4일 코스피 100부터 시작되는 데이터가 존재하지 않음
 
+  - yfiance doesn't handle filtering based on companrsions (greater_than, less_than etc)
+
+    Solved: Fetching data with yfinance -> Manual Comparison logic -> implementation
+    
+
 
 ### **polyon.io**
   - 회사의 이름만 가지고 ticker를 조회하기 위해서 사용
