@@ -13,6 +13,7 @@ import pandas as pd
 import spacy
 import requests
 import os
+import time
 
 from .models import KospiData
 from .serializers import (
@@ -86,68 +87,56 @@ def filter_kospi_data(request):
     return Response({"error": "No Close price provided."})
 
 
-##### Search stock #####
-# search for company name and return possible tickers
-def search_ticker(company_name):
-    url = "https://api.polygon.io/v3/reference/tickers"
-    api_key = os.getenv("POLYGON_API_KEY")
-
-    params = {"search": company_name, "active": "true", "apiKey": api_key}
-
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        data = response.json()
-
-        if "results" in data and len(data["results"]) > 0:
-            ticker_symbol = data["results"][0]["ticker"]  # get a ticker
-            return ticker_symbol
-        else:
-            print(f"No ticker found for {company_name}")
-            return None
-    except Exception as e:
-        print(f"Error fetching ticker for {company_name}: {e}")
-        return None
-
-
+##### reqeust information from API #####
 def extract_stock_info(query):
     doc = nlp(query)
     stock_name = None
     price_threshold = None
-
-    # print(f"Entities in the query: {[ (ent.text, ent.label_) for ent in doc.ents ]}")
+    comparison_type = "equal"  # default value
 
     # extract price and stock name
     for ent in doc.ents:
-        if ent.label_ == "MONEY" or ent.label_ == "CARDINAL":  # price
+        if ent.label_ in ["MONEY", "CARDINAL"]:  # price
             price_threshold = ent.text
-        elif ent.label_ == "ORG" or ent.label_ == "GPE":  # company name
+        elif ent.label_ in ["ORG", "GPE"]:  # company name
             stock_name = ent.text
 
-    return stock_name, price_threshold
+    if "exceed" in query.lower() or "greater than" in query.lower():
+        comparison_type = "greater_than_equal"
+    elif "less than" in query.lower():
+        comparison_type = "less_than_equal"
+    elif "equal to" in query.lower():
+        comparison_type = "equal"
 
-
-# fetch stock data using yfinance
-def get_stock_data(ticker, price, comparison_type):
-    stock = yf.Ticker(ticker)
-    hist = stock.history(peroid="1y")
-
-    if hist.empty:
-        return []
-
-    if comparison_type == "greater_than":
-        result = hist[hist["Close"] > float(price)]
-    elif comparison_type == "greater_than_equal":
-        result = hist[hist["Close"] >= float(price)]
-    elif comparison_type == "less_than":
-        result = hist[hist["Close"] < float(price)]
-    elif comparison_type == "less_than_equal":
-        result = hist[hist["Close"] <= float(price)]
-
-    return result.tail(5).reset_index()[["Date", "Close"]].to_dict(orient="records")
+    return stock_name, price_threshold, comparison_type
 
 
 # view to process stock queries
+def search_polygon_ticker(company_name):
+    api_key = os.getenv("POLYGON_API_KEY")
+    url = f"https://api.polygon.io/v3/reference/tickers?search={company_name}&active=true&apiKey={api_key}"
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+
+        # extract relevant company
+        company_options = [
+            {
+                "name": item.get("name", "N/A"),
+                "ticker": item.get("ticker", "N/A"),
+                "exchange": item.get("primary_exchange", "N/A"),
+            }
+            for item in data.get("results", [])
+        ]
+
+        return company_options
+    except requests.exceptions.HTTPError as e:
+        print(f"Error fetching ticker for {company_name}: {e}")
+        return []
+
+
 class StockQueryAPIView(APIView):
     def post(self, request):
         serializer = StockQuerySerializer(data=request.data)
@@ -156,7 +145,7 @@ class StockQueryAPIView(APIView):
             query = serializer.validated_data.get("query")
 
             # 1. extract company name and price
-            company, price = extract_stock_info(query)
+            company, price, comparison_type = extract_stock_info(query)
 
             if not company or not price:
                 return Response(
@@ -165,7 +154,9 @@ class StockQueryAPIView(APIView):
                 )
 
             # 2. search for tickers
-            company_options = search_ticker(company)
+            company_options = search_polygon_ticker(company)
+
+            print(company_options)
 
             if len(company_options) == 0:
                 return Response(
@@ -175,11 +166,34 @@ class StockQueryAPIView(APIView):
 
             # 3. Return company and ticker
             return Response(
-                {"company_options": company_options, "price": price},
+                {
+                    "company_options": company_options,
+                    "price": price,
+                    "comparison_type": comparison_type,
+                },
                 status=status.HTTP_200_OK,
             )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+##### search #####
+
+
+# fetch stock data using yfinance
+def get_stock_data(ticker, price, comparison_type):
+    stock = yf.Ticker(ticker)
+    hist = stock.history(period="1y")
+
+    if hist.empty:
+        return []
+
+    if comparison_type == "greater_than_equal":
+        result = hist[hist["Close"] >= float(price)]
+    elif comparison_type == "less_than_equal":
+        result = hist[hist["Close"] <= float(price)]
+
+    return result.tail(5).reset_index()[["Date", "Close"]].to_dict(orient="records")
 
 
 class StockDataSearchAPIView(APIView):
@@ -194,6 +208,13 @@ class StockDataSearchAPIView(APIView):
             # 4. fetch stock data and return
             stock_data = get_stock_data(ticker, price, comparison_type)
 
+            if len(stock_data) == 0:
+                return Response(
+                    {"Error": "No stock data found for the given query"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Response data, latest 5 days
             return Response(
                 {
                     "ticker": ticker,

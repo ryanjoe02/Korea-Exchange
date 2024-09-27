@@ -73,5 +73,5 @@ class StockDataSearchSerializer(serializers.Serializer):
     ticker = serializers.CharField(max_length=10)
     price = serializers.FloatField()
     comparison_type = serializers.ChoiceField(
-        choices=["greater_than", "greater_than_equal", "less_than", "less_than_equal"]
+        choices=["greater_than_equal", "less_than_equal"]
     )
