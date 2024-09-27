@@ -10,7 +10,9 @@
 
 
 ### **polyon.io**
-  - 회사의 이름만 가지고 ticker를 조회하기 위해서 사용
+- 회사의 이름만 가지고 ticker를 조회하기 위해서 사용
+
+- 하지만 무료 버전은 시간 당 몇번의 요청밖에 쓸 수 없어서 yfinance를 그대로 사용하기로 결정 
 
 # Implemented Features
 
@@ -56,6 +58,67 @@
   }
   ```
 
-### 수정해야 할 사항들 및 배우게 된 것들 ###
+### **4. Search**
 
-1. 무료 API 를 이용해서 모든 회사들의 정보를 검색할 순 없어서 한계가 있다. 최대한 여려 APIs 를 사용하면서 어떤 것이 좋은지 사용해봐야겠다.
+- `/api/stock-query`
+
+  Requeset :
+  ```
+    {"query": "When did Apple stock exceed 120 dollars?"}
+  ```
+
+  Response :
+
+    ETFs are being retrieved, but for exchanges that are not registered, 'N/A' is displayed
+
+    ![Alt text](/pics/stock-query.png)
+
+- `/api/stock-data-search/`
+
+  Request :
+  ```
+    {
+      "ticker": "AAPL",
+      "price": 120,
+      "comparison_type": "greater_than_equal"
+    }
+  ```
+  
+  Response :
+
+  ![Alt text](/pics/stock-data-search.png)
+
+- Views.py
+
+  Error 429, also known as "Too Many Requests," occurs when a user sends too many requests to a server
+
+    ```python
+    def search_yfinance_ticker(company_name):
+    # un-official yfinance API
+    url = f"https://query1.finance.yahoo.com/v1/finance/search?q={company_name}"
+    print(url)
+
+    try:
+        response = requests.get(url)
+        time.sleep(2)
+        response.raise_for_status()
+        data = response.json()
+
+        print(f"Yahoo Finance API response: {data}")
+
+        # extract relevant company
+        company_options = [
+            {
+                "name": item.get("longname", item.get("shortname", "N/A")),
+                "ticker": item.get("symbol", "N/A"),
+                "exchange": item.get("exchDisp", "N/A")
+            }
+            for item in data.get("quotes", [])
+        ]
+        
+        return company_options
+    except Exception as e:
+        print(f"Error fetching ticker for {company_name}: {e}")
+        return []
+        ```
+        
