@@ -187,13 +187,19 @@ def get_stock_data(ticker, price, comparison_type):
 
     if hist.empty:
         return []
+    
+    hist.reset_index(inplace=True)
 
     if comparison_type == "greater_than_equal":
         result = hist[hist["Close"] >= float(price)]
     elif comparison_type == "less_than_equal":
         result = hist[hist["Close"] <= float(price)]
 
-    return result.tail(5).reset_index()[["Date", "Close"]].to_dict(orient="records")
+    result.loc[:, "price_diff"] = abs(result["Close"] - float(price))
+    sorted_data = result.sort_values(by="price_diff")
+    sorted_data['Date'] = sorted_data['Date'].dt.strftime('%Y-%m-%d')
+    
+    return sorted_data.head(10).reset_index()[["Date", "Close"]].to_dict(orient="records")
 
 
 class StockDataSearchAPIView(APIView):
