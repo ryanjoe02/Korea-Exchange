@@ -13,7 +13,6 @@ import pandas as pd
 import spacy
 import requests
 import os
-import time
 
 from .models import KospiData
 from .serializers import (
@@ -23,7 +22,8 @@ from .serializers import (
     StockDataSearchSerializer,
 )
 
-# extract stock name and price using NLP
+
+# Extract stock name and price using NLP
 nlp = spacy.load("en_core_web_sm")
 
 
@@ -46,7 +46,7 @@ class CustomTokenCreateView(APIView):
         return Response({"token": token.key}, status=status.HTTP_200_OK)
 
 
-##### stored kospi data in SQL (from 1996.12.11) #####
+##### Stored Kospi data in SQL (from 1996.12.11) #####
 @api_view(["GET"])
 def latest_kospi_data(request):
     fifty_days = datetime.now().date() - timedelta(days=10)
@@ -87,31 +87,31 @@ def filter_kospi_data(request):
     return Response({"error": "No Close price provided."})
 
 
-##### reqeust information from API #####
+##### Reqeust information from API #####
 def extract_stock_info(query):
     doc = nlp(query)
     stock_name = None
     price_threshold = None
-    comparison_type = "equal"  # default value
+    comparison_type = "greater_than_equal"  # default value
 
-    # extract price and stock name
+    # Extract price and stock name
     for ent in doc.ents:
         if ent.label_ in ["MONEY", "CARDINAL"]:  # price
             price_threshold = ent.text
         elif ent.label_ in ["ORG", "GPE"]:  # company name
             stock_name = ent.text
 
-    if "exceed" in query.lower() or "greater than" in query.lower():
-        comparison_type = "greater_than_equal"
-    elif "less than" in query.lower():
-        comparison_type = "less_than_equal"
-    elif "equal to" in query.lower():
-        comparison_type = "equal"
+    # Determine comparison type based on keywords in the question
+    for token in doc:
+        if "exceed" in token.lemma_ or "greater" in token.text or "above" in token.text:
+            comparison_type = "greater_than_equal"
+        elif "less" in token.text or "below" in token.text:
+            comparison_type = "less_than_equal"
 
     return stock_name, price_threshold, comparison_type
 
 
-# view to process stock queries
+# View to process stock queries
 def search_polygon_ticker(company_name):
     api_key = os.getenv("POLYGON_API_KEY")
     url = f"https://api.polygon.io/v3/reference/tickers?search={company_name}&active=true&apiKey={api_key}"
@@ -121,7 +121,7 @@ def search_polygon_ticker(company_name):
         response.raise_for_status()
         data = response.json()
 
-        # extract relevant company
+        # Extract relevant company
         company_options = [
             {
                 "name": item.get("name", "N/A"),
@@ -144,7 +144,7 @@ class StockQueryAPIView(APIView):
         if serializer.is_valid():
             query = serializer.validated_data.get("query")
 
-            # 1. extract company name and price
+            # 1. Extract company name and price
             company, price, comparison_type = extract_stock_info(query)
 
             if not company or not price:
@@ -153,7 +153,7 @@ class StockQueryAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # 2. search for tickers
+            # 2. Search for tickers
             company_options = search_polygon_ticker(company)
 
             print(company_options)
@@ -177,13 +177,13 @@ class StockQueryAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-##### search #####
+##### Search #####
 
 
-# fetch stock data using yfinance
+# Fetch stock data using yfinance
 def get_stock_data(ticker, price, comparison_type):
     stock = yf.Ticker(ticker)
-    hist = stock.history(period="1y")
+    hist = stock.history(period="max")
 
     if hist.empty:
         return []
@@ -205,7 +205,7 @@ class StockDataSearchAPIView(APIView):
             price = serializer.validated_data.get("price")
             comparison_type = serializer.validated_data.get("comparison_type")
 
-            # 4. fetch stock data and return
+            # 4. Fetch stock data and return
             stock_data = get_stock_data(ticker, price, comparison_type)
 
             if len(stock_data) == 0:
@@ -228,7 +228,9 @@ class StockDataSearchAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# view to export data to Excel
+##### Export Excel #####
+
+
 class StockExportExcelAPIView(APIView):
     def post(self, request):
         serializer = StockQuerySerializer(data=request.data)
@@ -236,7 +238,7 @@ class StockExportExcelAPIView(APIView):
         if serializer.is_valid():
             query = serializer.validated_data.get("query")
 
-            # extract stock info
+            # Extract stock info
             stock_symbol, price = extract_stock_info(query)
 
             if not stock_symbol or not price:
@@ -244,19 +246,16 @@ class StockExportExcelAPIView(APIView):
                     {"error": "Unable to extract stock information"}, status=400
                 )
 
-            # fetch stock data using yfinance
+            # Fetch stock data using yfinance
             try:
-                data = get_stock_data(stock_symbol)
-            except:
-                return Response({"error": "Faild to retrieve stock data"}, status=404)
+                data = get_stock_data(stock_symbol, price, "greater_than_equal")
+            except Exception:
+                return Response({"error": "Failed to retrieve stock data"}, status=404)
 
-            # filter for dates where closing price exceeds the given price
-            result = data[data["Close"] > float(price)]
+            # Filter data by price
+            df = pd.DataFrame(data).reset_index()[["Date", "Close"]]
 
-            # convert result to pandas DataFrame
-            df = result.reset_index()[["Date", "Close"]]
-
-            # create excel file
+            # Create Excel file
             output = BytesIO()
             writer = pd.ExcelWriter(output, engine="openpyxl")
             df.to_excel(writer, index=False)
